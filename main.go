@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/chromedp/chromedp"
@@ -15,15 +16,17 @@ import (
 
 func main() {
 
-	opts := append(chromedp.DefaultExecAllocatorOptions[:],
-		chromedp.Flag("headless", false),
-		chromedp.Flag("disable-gpu", false),
-		chromedp.Flag("enable-automation", false),
-		chromedp.Flag("disable-extensions", false),
-	)
+	// opts := append(chromedp.DefaultExecAllocatorOptions[:],
+	// 	chromedp.Flag("headless", false),
+	// 	chromedp.Flag("disable-gpu", false),
+	// 	chromedp.Flag("enable-automation", false),
+	// 	chromedp.Flag("disable-extensions", false),
+	// )
 
-	allocCtx, cancel := chromedp.NewExecAllocator(context.Background(), opts...)
-	defer cancel()
+	// allocCtx, cancel := chromedp.NewExecAllocator(context.Background(), opts...)
+	// defer cancel()
+
+	allocCtx := context.Background()
 
 	// create context
 	ctx, cancel := chromedp.NewContext(allocCtx, chromedp.WithLogf(log.Printf))
@@ -37,35 +40,26 @@ func main() {
 		panic(err)
 	}
 
-	channel := make(chan bool)
-	lastIndex := 0
-	countChannel := 0
+	var waitGroup = new(sync.WaitGroup)
 
-	for i := 1; i <= len(links); i++ {
-		go func(i int) {
-			err := downloadMusic(ctx, links[i-1])
+	waitGroup.Add(len(links))
+
+	for _, link := range links {
+
+		go func(link string) {
+			defer waitGroup.Done()
+
+			err := downloadMusic(ctx, link)
 
 			if err != nil {
 				log.Println(err)
 			}
-			channel <- true
-		}(i)
 
-		countChannel++
-
-		if countChannel%50 == 0 {
-
-			for k := lastIndex; k < countChannel; k++ {
-				log.Println(<-channel)
-			}
-
-			lastIndex = countChannel
-		}
+		}(link)
 	}
 
-	for i := lastIndex; i < countChannel; i++ {
-		log.Println(<-channel)
-	}
+	waitGroup.Wait()
+
 }
 
 func getLinks(links *[]string) chromedp.Tasks {
@@ -80,7 +74,11 @@ func downloadMusic(ctx context.Context, url string) error {
 
 	var urlDowmload string
 
-	ctxx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	clone, cancel := chromedp.NewContext(ctx)
+
+	defer cancel()
+
+	ctxx, cancel := context.WithTimeout(clone, 300*time.Second)
 	defer cancel()
 
 	err := chromedp.Run(ctxx, downloadMusicTasks(url, &urlDowmload))

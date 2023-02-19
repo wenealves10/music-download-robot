@@ -15,8 +15,18 @@ import (
 
 func main() {
 
-	ctx, cancel := chromedp.NewContext(context.Background())
+	opts := append(chromedp.DefaultExecAllocatorOptions[:],
+		chromedp.Flag("headless", false),
+		chromedp.Flag("disable-gpu", false),
+		chromedp.Flag("enable-automation", false),
+		chromedp.Flag("disable-extensions", false),
+	)
 
+	allocCtx, cancel := chromedp.NewExecAllocator(context.Background(), opts...)
+	defer cancel()
+
+	// create context
+	ctx, cancel := chromedp.NewContext(allocCtx, chromedp.WithLogf(log.Printf))
 	defer cancel()
 
 	var links []string
@@ -27,13 +37,34 @@ func main() {
 		panic(err)
 	}
 
-	for _, link := range links {
-		fmt.Println(link)
-		err := downloadMusic(ctx, link)
+	channel := make(chan bool)
+	lastIndex := 0
+	countChannel := 0
 
-		if err != nil {
-			log.Println(err)
+	for i := 1; i <= len(links); i++ {
+		go func(i int) {
+			err := downloadMusic(ctx, links[i-1])
+
+			if err != nil {
+				log.Println(err)
+			}
+			channel <- true
+		}(i)
+
+		countChannel++
+
+		if countChannel%50 == 0 {
+
+			for k := lastIndex; k < countChannel; k++ {
+				log.Println(<-channel)
+			}
+
+			lastIndex = countChannel
 		}
+	}
+
+	for i := lastIndex; i < countChannel; i++ {
+		log.Println(<-channel)
 	}
 }
 

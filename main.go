@@ -15,23 +15,9 @@ import (
 
 func main() {
 
-	// // chrome visible headless false
 	ctx, cancel := chromedp.NewContext(context.Background())
 
 	defer cancel()
-	// opts := append(chromedp.DefaultExecAllocatorOptions[:],
-	// 	chromedp.Flag("headless", false),
-	// 	chromedp.Flag("disable-gpu", false),
-	// 	chromedp.Flag("enable-automation", false),
-	// 	chromedp.Flag("disable-extensions", false),
-	// )
-
-	// allocCtx, cancel := chromedp.NewExecAllocator(context.Background(), opts...)
-	// defer cancel()
-
-	// // create context
-	// ctx, cancel := chromedp.NewContext(allocCtx, chromedp.WithLogf(log.Printf))
-	// defer cancel()
 
 	var links []string
 
